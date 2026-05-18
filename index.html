@@ -16,7 +16,7 @@
       <li><a href="#" data-section="python">Python Deep Dive</a></li>
       <li><a href="#" data-section="tools">Other Tools</a></li>
       <li><a href="#" data-section="scenarios">Scenario Selector</a></li>
-      <li><a href="#" data-section="books">Books & Resources</a></li>
+      <li><a href="#" data-section="books">Books &amp; Resources</a></li>
       <li><a href="#" data-section="sandbox">Live Sandbox</a></li>
     </ul>
   </nav>
@@ -184,8 +184,8 @@ import pandas as pd
 
 df = (
     pd.read_csv("data/raw/messy.csv")
-    .clean_names()                          # snake_case all column names
-    .remove_empty()                         # drop all-null rows/cols
+    .clean_names()
+    .remove_empty()
     .rename_column("cust_nm", "customer_name")
     .drop_duplicates(subset="customer_id")
     .filter_on("revenue > 0")
@@ -194,44 +194,33 @@ df = (
         </div>
         <div class="tab-content" id="tab-ftfy">
           <h3>ftfy — Fix Raw Text Encoding Problems</h3>
-          <p>When your professor gives you a raw <code>.txt</code> file and strings look like <code>â€™</code> or <code>Ã©</code> — that's broken Unicode. ftfy fixes it automatically.</p>
-          <div class="code-block"><pre><code>import ftfy
-import chardet
+          <p>When your professor gives you a raw <code>.txt</code> file and strings look like <code>â€™</code> — that's broken Unicode. ftfy fixes it automatically.</p>
+          <div class="code-block"><pre><code>import ftfy, chardet
 
-# Step 1: Detect actual encoding
 with open("data/raw/source.txt", "rb") as f:
-    raw_bytes = f.read(100000)
-    detected = chardet.detect(raw_bytes)
+    detected = chardet.detect(f.read(100000))
     print(detected)  # {'encoding': 'Windows-1252', 'confidence': 0.73}
 
-# Step 2: Open with detected encoding
 with open("data/raw/source.txt", encoding=detected['encoding'], errors='replace') as f:
     raw_text = f.read()
 
-# Step 3: Fix remaining Unicode mojibake
 fixed_text = ftfy.fix_text(raw_text)
-
-# Step 4: Apply to a DataFrame column
 df['description'] = df['description'].apply(ftfy.fix_text)</code></pre></div>
-          <div class="tip-box">Always detect encoding <em>before</em> loading. UTF-8 is not a safe assumption for professor-given files — many are exported from Excel as <code>Windows-1252</code>.</div>
+          <div class="tip-box">Always detect encoding before loading. UTF-8 is not a safe assumption — many professor files are exported from Excel as <code>Windows-1252</code>.</div>
         </div>
         <div class="tab-content" id="tab-pandera">
           <h3>pandera — Schema Contracts for DataFrames</h3>
           <p>Define what your data <em>should</em> look like after cleaning. Run validation at every stage boundary.</p>
           <div class="code-block"><pre><code>import pandera as pa
 
-clean_schema = pa.DataFrameSchema(
-    columns={
-        "customer_id": pa.Column(str, pa.Check(lambda s: s.str.len() == 8)),
-        "age": pa.Column(int, pa.Check.between(18, 100), nullable=False),
-        "email": pa.Column(str, pa.Check(lambda s: s.str.contains(r'@\w+\.\w+', regex=True))),
-        "revenue": pa.Column(float, pa.Check.ge(0), nullable=True),
-        "region": pa.Column(str, pa.Check.isin(["NORTH", "SOUTH", "EAST", "WEST", "UNKNOWN"])),
-    },
-)
+clean_schema = pa.DataFrameSchema({
+    "customer_id": pa.Column(str, pa.Check(lambda s: s.str.len() == 8)),
+    "age": pa.Column(int, pa.Check.between(18, 100), nullable=False),
+    "revenue": pa.Column(float, pa.Check.ge(0), nullable=True),
+})
 
 try:
-    validated = clean_schema.validate(df, lazy=True)  # collect ALL errors
+    validated = clean_schema.validate(df, lazy=True)
 except pa.errors.SchemaErrors as e:
     print(e.failure_cases)</code></pre></div>
         </div>
@@ -246,13 +235,12 @@ candidate_pairs = indexer.index(df_a, df_b)
 
 compare = recordlinkage.Compare()
 compare.string("first_name", "first_name", method="jarowinkler", threshold=0.85)
-compare.string("address", "address", method="cosine", threshold=0.7)
 compare.exact("zip_code", "zip_code")
 
 features = compare.compute(candidate_pairs, df_a, df_b)
 matches = features[features.sum(axis=1) >= 2]
 print(f"Found {len(matches):,} probable matches")</code></pre></div>
-          <div class="tip-box">Always manually review a sample of matches. Record linkage produces <em>probable</em> matches, not guaranteed ones.</div>
+          <div class="tip-box">Always manually review a sample. Record linkage produces <em>probable</em> matches, not guaranteed ones.</div>
         </div>
       </div>
       <h2>YouTube Tutorials</h2>
@@ -267,12 +255,12 @@ print(f"Found {len(matches):,} probable matches")</code></pre></div>
       <h1>Other Tools to Learn</h1>
       <p class="lead">Python is not always the right tool. Know when to reach for something else.</p>
       <div class="tools-grid">
-        <div class="tool-card"><div class="tool-header sql">SQL + dbt</div><p>Pipeline-stage transformations with version control. Learn this <strong>first</strong> after Python — enforces the zone architecture natively.</p><div class="tool-meta"><span class="badge free">Free</span><span class="badge scale-any">Any scale</span></div><a href="https://www.getdbt.com/" target="_blank">→ getdbt.com</a></div>
+        <div class="tool-card"><div class="tool-header sql">SQL + dbt</div><p>Pipeline-stage transformations with version control. Learn this <strong>first</strong> after Python.</p><div class="tool-meta"><span class="badge free">Free</span><span class="badge scale-any">Any scale</span></div><a href="https://www.getdbt.com/" target="_blank">→ getdbt.com</a></div>
         <div class="tool-card"><div class="tool-header openrefine">OpenRefine</div><p>GUI tool for clustering similar text entries. Ideal for fixing inconsistent category spellings without writing code.</p><div class="tool-meta"><span class="badge free">Free</span><span class="badge scale-med">Small–Medium</span></div><a href="https://openrefine.org/" target="_blank">→ openrefine.org</a></div>
         <div class="tool-card"><div class="tool-header pyspark">Apache Spark / PySpark</div><p>Distributed cleaning for truly massive datasets. When polars hits memory limits, PySpark distributes the work.</p><div class="tool-meta"><span class="badge free">Free</span><span class="badge scale-huge">Massive scale</span></div><a href="https://spark.apache.org/docs/latest/api/python/" target="_blank">→ PySpark Docs</a></div>
         <div class="tool-card"><div class="tool-header alteryx">Alteryx</div><p>Enterprise-grade visual pipeline builder. No-code ETL with built-in data quality tools.</p><div class="tool-meta"><span class="badge paid">Paid</span><span class="badge scale-large">Large</span></div><a href="https://www.alteryx.com/" target="_blank">→ alteryx.com</a></div>
-        <div class="tool-card"><div class="tool-header tableauprep">Tableau Prep</div><p>Visual drag-and-drop transformation builder. Great for profiling messy data and showing stakeholders the pipeline.</p><div class="tool-meta"><span class="badge paid">Paid</span><span class="badge scale-med">Medium</span></div><a href="https://www.tableau.com/products/prep" target="_blank">→ Tableau Prep</a></div>
-        <div class="tool-card"><div class="tool-header excel">Power Query</div><p>M language-based transformation engine built into Excel and Power BI. Widely used in business environments.</p><div class="tool-meta"><span class="badge paid">Paid</span><span class="badge scale-med">Small–Medium</span></div><a href="https://learn.microsoft.com/en-us/power-query/" target="_blank">→ Power Query Docs</a></div>
+        <div class="tool-card"><div class="tool-header tableauprep">Tableau Prep</div><p>Visual drag-and-drop transformation builder. Great for profiling messy data.</p><div class="tool-meta"><span class="badge paid">Paid</span><span class="badge scale-med">Medium</span></div><a href="https://www.tableau.com/products/prep" target="_blank">→ Tableau Prep</a></div>
+        <div class="tool-card"><div class="tool-header excel">Power Query</div><p>M language transformation engine built into Excel and Power BI. Widely used in business environments.</p><div class="tool-meta"><span class="badge paid">Paid</span><span class="badge scale-med">Small–Medium</span></div><a href="https://learn.microsoft.com/en-us/power-query/" target="_blank">→ Power Query Docs</a></div>
       </div>
     </section>
 
@@ -292,26 +280,26 @@ print(f"Found {len(matches):,} probable matches")</code></pre></div>
         </div>
       </div>
       <div class="scenario-list">
-        <div class="scenario-card" data-tags="encoding"><h3>Mixed encoding in raw <code>.txt</code> files</h3><p><strong>Best approach:</strong> <code>chardet</code> to detect encoding → open with detected encoding → <code>ftfy</code> to fix remaining mojibake</p><span class="tag">Encoding</span></div>
-        <div class="scenario-card" data-tags="categories duplicates"><h3>Inconsistent category spellings ("NY", "new york", "N.Y.")</h3><p><strong>Best approach:</strong> OpenRefine clustering for exploratory fix, or <code>rapidfuzz</code> in Python for automated fuzzy matching at scale</p><span class="tag">Categories</span><span class="tag">Duplicates</span></div>
-        <div class="scenario-card" data-tags="scale"><h3>1M+ rows making pandas slow or crashing</h3><p><strong>Best approach:</strong> Switch to <code>polars</code> with <code>scan_csv()</code> for lazy evaluation, or PySpark for distributed workloads</p><span class="tag">Scale</span></div>
-        <div class="scenario-card" data-tags="validation"><h3>Need to validate data types after each transform</h3><p><strong>Best approach:</strong> <code>pandera</code> schema assertions at every pipeline stage boundary; use <code>lazy=True</code> to collect all errors at once</p><span class="tag">Validation</span></div>
-        <div class="scenario-card" data-tags="duplicates"><h3>Two datasets that won't join cleanly (IDs don't match)</h3><p><strong>Best approach:</strong> <code>recordlinkage</code> library for probabilistic matching with blocking; always manually review a sample</p><span class="tag">Duplicates</span></div>
-        <div class="scenario-card" data-tags="nulls"><h3>Large number of nulls — not sure what to do</h3><p><strong>Best approach:</strong> Classify them first (MCAR/MAR/MNAR). MCAR → drop/impute. MAR → KNN or regression. MNAR → flag, don't impute blindly.</p><span class="tag">Missing Data</span></div>
-        <div class="scenario-card" data-tags="validation encoding"><h3>Need to track all transformations for reproducibility</h3><p><strong>Best approach:</strong> <code>dbt</code> for SQL pipelines, or a Python audit log recording each step with timestamps and row count changes</p><span class="tag">Validation</span></div>
-        <div class="scenario-card" data-tags="categories"><h3>Date formats inconsistent across rows</h3><p><strong>Best approach:</strong> <code>dateparser</code> library handles most formats automatically; fall back to manual regex for edge cases</p><span class="tag">Categories</span></div>
-        <div class="scenario-card" data-tags="scale nulls"><h3>Pipeline needs to run automatically without manual review</h3><p><strong>Best approach:</strong> Idempotent functions + <code>pandera</code> validation + row count logging. Fail loudly on violations rather than silently continuing.</p><span class="tag">Scale</span><span class="tag">Missing Data</span></div>
+        <div class="scenario-card" data-tags="encoding"><h3>Mixed encoding in raw <code>.txt</code> files</h3><p><strong>Best approach:</strong> <code>chardet</code> → open with detected encoding → <code>ftfy</code> to fix mojibake</p><span class="tag">Encoding</span></div>
+        <div class="scenario-card" data-tags="categories duplicates"><h3>Inconsistent category spellings ("NY", "new york", "N.Y.")</h3><p><strong>Best approach:</strong> OpenRefine clustering or <code>rapidfuzz</code> for automated fuzzy matching at scale</p><span class="tag">Categories</span><span class="tag">Duplicates</span></div>
+        <div class="scenario-card" data-tags="scale"><h3>1M+ rows making pandas slow or crashing</h3><p><strong>Best approach:</strong> <code>polars</code> with <code>scan_csv()</code> for lazy evaluation, or PySpark for distributed workloads</p><span class="tag">Scale</span></div>
+        <div class="scenario-card" data-tags="validation"><h3>Need to validate data types after each transform</h3><p><strong>Best approach:</strong> <code>pandera</code> schema assertions at every pipeline stage; use <code>lazy=True</code> to collect all errors at once</p><span class="tag">Validation</span></div>
+        <div class="scenario-card" data-tags="duplicates"><h3>Two datasets that won't join cleanly (IDs don't match)</h3><p><strong>Best approach:</strong> <code>recordlinkage</code> for probabilistic matching with blocking; always manually review a sample</p><span class="tag">Duplicates</span></div>
+        <div class="scenario-card" data-tags="nulls"><h3>Large number of nulls — not sure what to do</h3><p><strong>Best approach:</strong> Classify first (MCAR/MAR/MNAR). MCAR → drop/impute. MAR → KNN or regression. MNAR → flag only.</p><span class="tag">Missing Data</span></div>
+        <div class="scenario-card" data-tags="validation encoding"><h3>Need to track all transformations for reproducibility</h3><p><strong>Best approach:</strong> <code>dbt</code> for SQL pipelines, or a Python audit log with timestamps and row counts per step</p><span class="tag">Validation</span></div>
+        <div class="scenario-card" data-tags="categories"><h3>Date formats inconsistent across rows</h3><p><strong>Best approach:</strong> <code>dateparser</code> handles most formats automatically; fall back to regex for edge cases</p><span class="tag">Categories</span></div>
+        <div class="scenario-card" data-tags="scale nulls"><h3>Pipeline needs to run automatically without manual review</h3><p><strong>Best approach:</strong> Idempotent functions + <code>pandera</code> validation + row count logging. Fail loudly on violations.</p><span class="tag">Scale</span><span class="tag">Missing Data</span></div>
       </div>
     </section>
 
     <section id="books" class="section">
-      <h1>Books & Resources</h1>
+      <h1>Books &amp; Resources</h1>
       <p class="lead">Ordered by where you are in your learning journey.</p>
       <div class="resource-list">
         <a href="https://www.oreilly.com/library/view/cleaning-data-for/9781801071291/" target="_blank" class="resource-card"><span class="res-icon">📖</span><div><strong>Cleaning Data for Effective Data Science</strong><p>Covers Python, R, and CLI tools for real-world messy data. <em>Start here.</em></p></div></a>
         <a href="https://wesmckinney.com/book/" target="_blank" class="resource-card"><span class="res-icon">📖</span><div><strong>Python for Data Analysis — Wes McKinney</strong><p>The pandas bible, written by its creator.</p></div></a>
         <a href="https://www.manning.com/books/effective-data-analysis" target="_blank" class="resource-card"><span class="res-icon">📖</span><div><strong>Effective Data Analysis — Mona Khalil</strong><p>Bridges the gap between cleaning and insight. Full lifecycle coverage.</p></div></a>
-        <a href="https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/books/data-warehouse-dw-toolkit/" target="_blank" class="resource-card"><span class="res-icon">📖</span><div><strong>The Data Warehouse Toolkit — Kimball & Ross</strong><p>Read this when you're ready to think in proper pipeline architecture at scale.</p></div></a>
+        <a href="https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/books/data-warehouse-dw-toolkit/" target="_blank" class="resource-card"><span class="res-icon">📖</span><div><strong>The Data Warehouse Toolkit — Kimball &amp; Ross</strong><p>Read when you're ready to think in proper pipeline architecture at scale.</p></div></a>
         <a href="https://docs.pola.rs/" target="_blank" class="resource-card"><span class="res-icon">📚</span><div><strong>Polars Official Docs</strong><p>Best reference for lazy evaluation, expressions, and large-file efficiency.</p></div></a>
         <a href="https://pandera.readthedocs.io/" target="_blank" class="resource-card"><span class="res-icon">📚</span><div><strong>Pandera Documentation</strong><p>Schema validation, custom checks, and CI pipeline integration.</p></div></a>
       </div>
@@ -319,11 +307,16 @@ print(f"Found {len(matches):,} probable matches")</code></pre></div>
 
     <section id="sandbox" class="section">
       <h1>Live Sandbox</h1>
-      <p class="lead">Paste messy CSV data below and apply cleaning operations to see the effect in real-time.</p>
+      <p class="lead">Edit the sample data below or paste your own CSV, toggle operations, and click Run to see results.</p>
       <div class="sandbox-layout">
         <div class="sandbox-input-panel">
-          <label>📥 Paste raw / messy data (CSV format)</label>
-          <textarea id="sandbox-input" rows="10" placeholder="customer_id,name,email,revenue&#10;001, John Smith ,JOHN@GMAIL.COM, 1200&#10;001, John Smith ,john@gmail.com,1200&#10;002,Jane   Doe,jane@yahoo.com,&#10;003,,badEmail,3400&#10;004,Bob Jones,bob@corp.com,-50"></textarea>
+          <label>📥 Raw / messy data (CSV format)</label>
+          <textarea id="sandbox-input" rows="10">customer_id,name,email,revenue
+001, John Smith ,JOHN@GMAIL.COM, 1200
+001, John Smith ,john@gmail.com,1200
+002,Jane   Doe,jane@yahoo.com,
+003,,badEmail,3400
+004,Bob Jones,bob@corp.com,-50</textarea>
           <div class="sandbox-operations">
             <label>🔧 Apply operations:</label>
             <div class="op-checks">
@@ -340,11 +333,11 @@ print(f"Found {len(matches):,} probable matches")</code></pre></div>
         <div class="sandbox-output-panel">
           <label>📤 Cleaned output</label>
           <div id="sandbox-output-table"></div>
-          <div id="sandbox-log" class="audit-log"></div>
+          <div id="sandbox-log" class="audit-log">Click "Run Cleaning" to see results...</div>
         </div>
       </div>
     </section>
   </main>
-  <script src="app.js"></script>
+  <script src="app.js" defer></script>
 </body>
 </html>
