@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Cleaning Guide</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <nav id="sidebar">
+    <div class="brand">🧹 Data Cleaning Guide</div>
+    <ul>
+      <li><a href="#" data-section="intro" class="active">Introduction</a></li>
+      <li><a href="#" data-section="pipeline">Pipeline Zones</a></li>
+      <li><a href="#" data-section="integrity">Data Integrity</a></li>
+      <li><a href="#" data-section="python">Python Deep Dive</a></li>
+      <li><a href="#" data-section="tools">Other Tools</a></li>
+      <li><a href="#" data-section="scenarios">Scenario Selector</a></li>
+      <li><a href="#" data-section="books">Books & Resources</a></li>
+      <li><a href="#" data-section="sandbox">Live Sandbox</a></li>
+    </ul>
+  </nav>
+  <main id="content">
+    <section id="intro" class="section active">
+      <h1>Data Cleaning is Pipeline Architecture</h1>
+      <p class="lead">Before any tool or tutorial: every transformation you apply is a <strong>contract</strong> — it must be traceable, repeatable, and scoped. One undocumented transformation buried in a loop can silently corrupt downstream analysis.</p>
+      <div class="card-grid">
+        <div class="card"><span class="card-icon">📏</span><h3>Scale Awareness</h3><p>Working with 1.8M+ row raw <code>.txt</code> files requires different tools than a 10K CSV. Know when to swap pandas for polars or PySpark.</p></div>
+        <div class="card"><span class="card-icon">🔁</span><h3>Reproducibility</h3><p>Every cleaning function should be <strong>idempotent</strong> — run it 10 times, get the same output. No side effects, no silent mutations.</p></div>
+        <div class="card"><span class="card-icon">📋</span><h3>Audit Trails</h3><p>Document every decision: why a null was dropped, why a column was renamed, why a row was excluded. Future you will thank you.</p></div>
+        <div class="card"><span class="card-icon">🔒</span><h3>Raw Data is Sacred</h3><p>Never overwrite your source files. The raw zone is read-only. Always. Even if your professor gives you a single messy <code>.txt</code> file.</p></div>
+      </div>
+      <div class="tip-box"><strong>💡 The One Habit That Would Save Most Projects:</strong> Write a <em>data quality report before analysis begins</em> — not after. Profile every column: null %, unique value counts, type distribution, min/max. Tools like <code>ydata-profiling</code> or <code>sweetviz</code> generate this automatically.</div>
+    </section>
+
+    <section id="pipeline" class="section">
+      <h1>Pipeline Zone Architecture</h1>
+      <p class="lead">No matter how long your pipeline is, you must define <strong>zones of trust</strong>. These zones apply whether you're using Python, SQL, dbt, or a no-code tool.</p>
+      <div class="pipeline-visual">
+        <div class="pipe-zone raw"><span class="zone-label">RAW ZONE</span><p>Untouched source data. <strong>Never modified.</strong> Store read-only. Hash-checksum it.</p><code>data/raw/source_2024.txt</code></div>
+        <div class="pipe-arrow">▶</div>
+        <div class="pipe-zone staging"><span class="zone-label">STAGING ZONE</span><p>Transformations happen here. Every step logged. Types inferred. Nulls handled. Duplicates removed.</p><code>data/staging/cleaned_v1.csv</code></div>
+        <div class="pipe-arrow">▶</div>
+        <div class="pipe-zone clean"><span class="zone-label">CLEAN ZONE</span><p>Validated, typed, deduplicated. Schema assertions pass. Row count reconciled.</p><code>data/clean/final.csv</code></div>
+        <div class="pipe-arrow">▶</div>
+        <div class="pipe-zone analysis"><span class="zone-label">ANALYSIS ZONE</span><p>Derived only from the clean zone. Never sourced from staging or raw.</p><code>notebooks/analysis.ipynb</code></div>
+      </div>
+      <h2>Enforcing Zones Without a Database</h2>
+      <div class="code-block"><pre><code>project/
+├── data/
+│   ├── raw/          ← READ ONLY. Never touch after initial save.
+│   ├── staging/      ← Working copies, intermediate transforms
+│   └── clean/        ← Final validated output
+├── notebooks/
+│   ├── 01_profile.ipynb
+│   ├── 02_clean.ipynb
+│   └── 03_analysis.ipynb
+├── scripts/
+│   └── clean_pipeline.py
+└── logs/
+    └── transform_audit.log</code></pre></div>
+      <div class="tip-box"><strong>⚠️ Rule:</strong> If a script writes to <code>data/raw/</code>, it is wrong. Make raw read-only at the OS level: <code>chmod 444 data/raw/*</code> on Mac/Linux.</div>
+    </section>
+
+    <section id="integrity" class="section">
+      <h1>Data Integrity Practices</h1>
+      <p class="lead">These practices apply even when you have no database, no schema enforcement, nothing but Python and a text file.</p>
+      <div class="accordion">
+        <div class="accordion-item">
+          <button class="accordion-btn">📦 Checksum Your Raw Data</button>
+          <div class="accordion-body">
+            <p>Hash the raw file before and after loading to confirm you haven't mutated it.</p>
+            <div class="code-block"><pre><code>import hashlib
+
+def file_hash(path):
+    h = hashlib.md5()
+    with open(path, 'rb') as f:
+        h.update(f.read())
+    return h.hexdigest()
+
+raw_hash = file_hash('data/raw/source.txt')
+print(f"Raw hash: {raw_hash}")
+# Save this hash. If it ever changes, someone touched raw data.</code></pre></div>
+          </div>
+        </div>
+        <div class="accordion-item">
+          <button class="accordion-btn">✅ Schema Assertions with Pandera</button>
+          <div class="accordion-body">
+            <p>After every transformation step, assert expected column types and value ranges.</p>
+            <div class="code-block"><pre><code>import pandera as pa
+
+schema = pa.DataFrameSchema({
+    "age": pa.Column(int, pa.Check.between(0, 120)),
+    "email": pa.Column(str, pa.Check(lambda s: s.str.contains('@'))),
+    "revenue": pa.Column(float, pa.Check.ge(0), nullable=True),
+})
+
+validated_df = schema.validate(df)</code></pre></div>
+          </div>
+        </div>
+        <div class="accordion-item">
+          <button class="accordion-btn">🔢 Row Count Reconciliation</button>
+          <div class="accordion-body">
+            <p>Log input row count vs. output row count at every stage. Any unexplained drop is a bug.</p>
+            <div class="code-block"><pre><code>def log_transform(df_in, df_out, step_name):
+    dropped = len(df_in) - len(df_out)
+    print(f"[{step_name}] IN: {len(df_in):,} | OUT: {len(df_out):,} | DROPPED: {dropped:,}")
+    if dropped < 0:
+        print(f"  ⚠️ Row count INCREASED — check for unintended duplications")
+    return df_out
+
+df_clean = log_transform(df_raw, df_deduped, "deduplication")</code></pre></div>
+          </div>
+        </div>
+        <div class="accordion-item">
+          <button class="accordion-btn">🕳️ Null Propagation Tracking</button>
+          <div class="accordion-body">
+            <p>Document <em>why</em> each null exists. There are different types of missing data — confusing them leads to wrong imputation.</p>
+            <div class="comparison-table"><table>
+              <thead><tr><th>Type</th><th>Meaning</th><th>Correct Action</th></tr></thead>
+              <tbody>
+                <tr><td><strong>MCAR</strong></td><td>Missing Completely At Random — no pattern</td><td>Safe to drop or simple impute</td></tr>
+                <tr><td><strong>MAR</strong></td><td>Missing At Random — pattern in other columns</td><td>Model-based imputation (KNN, regression)</td></tr>
+                <tr><td><strong>MNAR</strong></td><td>Missing Not At Random — absence IS the data</td><td>Flag it; don't impute blindly</td></tr>
+                <tr><td><strong>Introduced</strong></td><td>Created by a bad join or parsing error</td><td>Fix the upstream transform</td></tr>
+              </tbody>
+            </table></div>
+          </div>
+        </div>
+        <div class="accordion-item">
+          <button class="accordion-btn">🔄 Idempotency</button>
+          <div class="accordion-body">
+            <p>Every cleaning function must produce the same output no matter how many times it runs on the same input.</p>
+            <div class="code-block"><pre><code># ✅ Idempotent — safe to re-run
+def normalize_emails(df):
+    df = df.copy()  # never mutate in place
+    df['email'] = df['email'].str.lower().str.strip()
+    return df
+
+# ❌ NOT idempotent — appends a suffix every run
+def tag_rows(df):
+    df['label'] = df['label'] + '_processed'  # stacks on reruns
+    return df</code></pre></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="python" class="section">
+      <h1>Python Deep Dive</h1>
+      <p class="lead">You know pandas — now level up to the tools that handle 1.8M rows without choking.</p>
+      <div class="tab-group">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="polars">Polars (Speed)</button>
+          <button class="tab-btn" data-tab="pyjanitor">pyjanitor (Readability)</button>
+          <button class="tab-btn" data-tab="ftfy">ftfy (Raw Text)</button>
+          <button class="tab-btn" data-tab="pandera">pandera (Validation)</button>
+          <button class="tab-btn" data-tab="recordlinkage">Record Linkage</button>
+        </div>
+        <div class="tab-content active" id="tab-polars">
+          <h3>Polars — 10–50x Faster Than Pandas</h3>
+          <p>Rust-backed DataFrame library with lazy evaluation. For 1M+ row files, this is no longer optional.</p>
+          <div class="code-block"><pre><code>import polars as pl
+
+df = (
+    pl.scan_csv("data/raw/large_dataset.csv")  # doesn't load into memory yet
+    .filter(pl.col("revenue") > 0)
+    .with_columns([
+        pl.col("email").str.to_lowercase().alias("email_clean"),
+        pl.col("date").str.strptime(pl.Date, "%Y-%m-%d").alias("date_parsed"),
+    ])
+    .drop_nulls(subset=["customer_id"])
+    .collect()  # NOW it executes
+)
+
+print(df.shape)</code></pre></div>
+          <div class="tip-box">Use <code>scan_csv()</code> instead of <code>read_csv()</code> for large files — it streams and only loads what the query needs.</div>
+        </div>
+        <div class="tab-content" id="tab-pyjanitor">
+          <h3>pyjanitor — Readable Pipeline Chains</h3>
+          <p>Method-chaining API built on pandas. Makes cleaning pipelines read like prose.</p>
+          <div class="code-block"><pre><code>import janitor
+import pandas as pd
+
+df = (
+    pd.read_csv("data/raw/messy.csv")
+    .clean_names()                          # snake_case all column names
+    .remove_empty()                         # drop all-null rows/cols
+    .rename_column("cust_nm", "customer_name")
+    .drop_duplicates(subset="customer_id")
+    .filter_on("revenue > 0")
+    .fill_empty(column_names=["region"], value="UNKNOWN")
+)</code></pre></div>
+        </div>
+        <div class="tab-content" id="tab-ftfy">
+          <h3>ftfy — Fix Raw Text Encoding Problems</h3>
+          <p>When your professor gives you a raw <code>.txt</code> file and strings look like <code>â€™</code> or <code>Ã©</code> — that's broken Unicode. ftfy fixes it automatically.</p>
+          <div class="code-block"><pre><code>import ftfy
+import chardet
+
+# Step 1: Detect actual encoding
+with open("data/raw/source.txt", "rb") as f:
+    raw_bytes = f.read(100000)
+    detected = chardet.detect(raw_bytes)
+    print(detected)  # {'encoding': 'Windows-1252', 'confidence': 0.73}
+
+# Step 2: Open with detected encoding
+with open("data/raw/source.txt", encoding=detected['encoding'], errors='replace') as f:
+    raw_text = f.read()
+
+# Step 3: Fix remaining Unicode mojibake
+fixed_text = ftfy.fix_text(raw_text)
+
+# Step 4: Apply to a DataFrame column
+df['description'] = df['description'].apply(ftfy.fix_text)</code></pre></div>
+          <div class="tip-box">Always detect encoding <em>before</em> loading. UTF-8 is not a safe assumption for professor-given files — many are exported from Excel as <code>Windows-1252</code>.</div>
+        </div>
+        <div class="tab-content" id="tab-pandera">
+          <h3>pandera — Schema Contracts for DataFrames</h3>
+          <p>Define what your data <em>should</em> look like after cleaning. Run validation at every stage boundary.</p>
+          <div class="code-block"><pre><code>import pandera as pa
+
+clean_schema = pa.DataFrameSchema(
+    columns={
+        "customer_id": pa.Column(str, pa.Check(lambda s: s.str.len() == 8)),
+        "age": pa.Column(int, pa.Check.between(18, 100), nullable=False),
+        "email": pa.Column(str, pa.Check(lambda s: s.str.contains(r'@\w+\.\w+', regex=True))),
+        "revenue": pa.Column(float, pa.Check.ge(0), nullable=True),
+        "region": pa.Column(str, pa.Check.isin(["NORTH", "SOUTH", "EAST", "WEST", "UNKNOWN"])),
+    },
+)
+
+try:
+    validated = clean_schema.validate(df, lazy=True)  # collect ALL errors
+except pa.errors.SchemaErrors as e:
+    print(e.failure_cases)</code></pre></div>
+        </div>
+        <div class="tab-content" id="tab-recordlinkage">
+          <h3>Record Linkage — Merging When IDs Don't Match</h3>
+          <p>When datasets should join but IDs are inconsistent, record linkage finds probable matches without exact keys.</p>
+          <div class="code-block"><pre><code>import recordlinkage
+
+indexer = recordlinkage.Index()
+indexer.block(left_on="last_name", right_on="last_name")
+candidate_pairs = indexer.index(df_a, df_b)
+
+compare = recordlinkage.Compare()
+compare.string("first_name", "first_name", method="jarowinkler", threshold=0.85)
+compare.string("address", "address", method="cosine", threshold=0.7)
+compare.exact("zip_code", "zip_code")
+
+features = compare.compute(candidate_pairs, df_a, df_b)
+matches = features[features.sum(axis=1) >= 2]
+print(f"Found {len(matches):,} probable matches")</code></pre></div>
+          <div class="tip-box">Always manually review a sample of matches. Record linkage produces <em>probable</em> matches, not guaranteed ones.</div>
+        </div>
+      </div>
+      <h2>YouTube Tutorials</h2>
+      <div class="resource-list">
+        <a href="https://www.youtube.com/watch?v=NeJKaolLQqU" target="_blank" class="resource-card"><span class="res-icon">▶️</span><div><strong>Watch Me Cleaning Data in Minutes with Python</strong><p>End-to-end Colab walkthrough: headers, typos, booleans, nulls</p></div></a>
+        <a href="https://www.youtube.com/watch?v=ozKsfsldV7M" target="_blank" class="resource-card"><span class="res-icon">▶️</span><div><strong>Clean Messy Data in Python Step-by-Step</strong><p>13-step methodology, validates cleaning with charts</p></div></a>
+        <a href="https://www.datacamp.com/courses/cleaning-data-in-python" target="_blank" class="resource-card"><span class="res-icon">🎓</span><div><strong>DataCamp: Cleaning Data in Python</strong><p>4-hour course covering record linkage and advanced problems</p></div></a>
+      </div>
+    </section>
+
+    <section id="tools" class="section">
+      <h1>Other Tools to Learn</h1>
+      <p class="lead">Python is not always the right tool. Know when to reach for something else.</p>
+      <div class="tools-grid">
+        <div class="tool-card"><div class="tool-header sql">SQL + dbt</div><p>Pipeline-stage transformations with version control. Learn this <strong>first</strong> after Python — enforces the zone architecture natively.</p><div class="tool-meta"><span class="badge free">Free</span><span class="badge scale-any">Any scale</span></div><a href="https://www.getdbt.com/" target="_blank">→ getdbt.com</a></div>
+        <div class="tool-card"><div class="tool-header openrefine">OpenRefine</div><p>GUI tool for clustering similar text entries. Ideal for fixing inconsistent category spellings without writing code.</p><div class="tool-meta"><span class="badge free">Free</span><span class="badge scale-med">Small–Medium</span></div><a href="https://openrefine.org/" target="_blank">→ openrefine.org</a></div>
+        <div class="tool-card"><div class="tool-header pyspark">Apache Spark / PySpark</div><p>Distributed cleaning for truly massive datasets. When polars hits memory limits, PySpark distributes the work.</p><div class="tool-meta"><span class="badge free">Free</span><span class="badge scale-huge">Massive scale</span></div><a href="https://spark.apache.org/docs/latest/api/python/" target="_blank">→ PySpark Docs</a></div>
+        <div class="tool-card"><div class="tool-header alteryx">Alteryx</div><p>Enterprise-grade visual pipeline builder. No-code ETL with built-in data quality tools.</p><div class="tool-meta"><span class="badge paid">Paid</span><span class="badge scale-large">Large</span></div><a href="https://www.alteryx.com/" target="_blank">→ alteryx.com</a></div>
+        <div class="tool-card"><div class="tool-header tableauprep">Tableau Prep</div><p>Visual drag-and-drop transformation builder. Great for profiling messy data and showing stakeholders the pipeline.</p><div class="tool-meta"><span class="badge paid">Paid</span><span class="badge scale-med">Medium</span></div><a href="https://www.tableau.com/products/prep" target="_blank">→ Tableau Prep</a></div>
+        <div class="tool-card"><div class="tool-header excel">Power Query</div><p>M language-based transformation engine built into Excel and Power BI. Widely used in business environments.</p><div class="tool-meta"><span class="badge paid">Paid</span><span class="badge scale-med">Small–Medium</span></div><a href="https://learn.microsoft.com/en-us/power-query/" target="_blank">→ Power Query Docs</a></div>
+      </div>
+    </section>
+
+    <section id="scenarios" class="section">
+      <h1>Scenario Selector</h1>
+      <p class="lead">Filter by your main problem to find the right cleaning approach.</p>
+      <div class="scenario-filter">
+        <label>What's your main problem?</label>
+        <div class="filter-buttons">
+          <button class="filter-btn active" data-filter="all">All</button>
+          <button class="filter-btn" data-filter="encoding">Encoding / Raw Text</button>
+          <button class="filter-btn" data-filter="scale">Large Scale (1M+ rows)</button>
+          <button class="filter-btn" data-filter="duplicates">Duplicates / Matching</button>
+          <button class="filter-btn" data-filter="validation">Validation</button>
+          <button class="filter-btn" data-filter="nulls">Missing Data</button>
+          <button class="filter-btn" data-filter="categories">Inconsistent Categories</button>
+        </div>
+      </div>
+      <div class="scenario-list">
+        <div class="scenario-card" data-tags="encoding"><h3>Mixed encoding in raw <code>.txt</code> files</h3><p><strong>Best approach:</strong> <code>chardet</code> to detect encoding → open with detected encoding → <code>ftfy</code> to fix remaining mojibake</p><span class="tag">Encoding</span></div>
+        <div class="scenario-card" data-tags="categories duplicates"><h3>Inconsistent category spellings ("NY", "new york", "N.Y.")</h3><p><strong>Best approach:</strong> OpenRefine clustering for exploratory fix, or <code>rapidfuzz</code> in Python for automated fuzzy matching at scale</p><span class="tag">Categories</span><span class="tag">Duplicates</span></div>
+        <div class="scenario-card" data-tags="scale"><h3>1M+ rows making pandas slow or crashing</h3><p><strong>Best approach:</strong> Switch to <code>polars</code> with <code>scan_csv()</code> for lazy evaluation, or PySpark for distributed workloads</p><span class="tag">Scale</span></div>
+        <div class="scenario-card" data-tags="validation"><h3>Need to validate data types after each transform</h3><p><strong>Best approach:</strong> <code>pandera</code> schema assertions at every pipeline stage boundary; use <code>lazy=True</code> to collect all errors at once</p><span class="tag">Validation</span></div>
+        <div class="scenario-card" data-tags="duplicates"><h3>Two datasets that won't join cleanly (IDs don't match)</h3><p><strong>Best approach:</strong> <code>recordlinkage</code> library for probabilistic matching with blocking; always manually review a sample</p><span class="tag">Duplicates</span></div>
+        <div class="scenario-card" data-tags="nulls"><h3>Large number of nulls — not sure what to do</h3><p><strong>Best approach:</strong> Classify them first (MCAR/MAR/MNAR). MCAR → drop/impute. MAR → KNN or regression. MNAR → flag, don't impute blindly.</p><span class="tag">Missing Data</span></div>
+        <div class="scenario-card" data-tags="validation encoding"><h3>Need to track all transformations for reproducibility</h3><p><strong>Best approach:</strong> <code>dbt</code> for SQL pipelines, or a Python audit log recording each step with timestamps and row count changes</p><span class="tag">Validation</span></div>
+        <div class="scenario-card" data-tags="categories"><h3>Date formats inconsistent across rows</h3><p><strong>Best approach:</strong> <code>dateparser</code> library handles most formats automatically; fall back to manual regex for edge cases</p><span class="tag">Categories</span></div>
+        <div class="scenario-card" data-tags="scale nulls"><h3>Pipeline needs to run automatically without manual review</h3><p><strong>Best approach:</strong> Idempotent functions + <code>pandera</code> validation + row count logging. Fail loudly on violations rather than silently continuing.</p><span class="tag">Scale</span><span class="tag">Missing Data</span></div>
+      </div>
+    </section>
+
+    <section id="books" class="section">
+      <h1>Books & Resources</h1>
+      <p class="lead">Ordered by where you are in your learning journey.</p>
+      <div class="resource-list">
+        <a href="https://www.oreilly.com/library/view/cleaning-data-for/9781801071291/" target="_blank" class="resource-card"><span class="res-icon">📖</span><div><strong>Cleaning Data for Effective Data Science</strong><p>Covers Python, R, and CLI tools for real-world messy data. <em>Start here.</em></p></div></a>
+        <a href="https://wesmckinney.com/book/" target="_blank" class="resource-card"><span class="res-icon">📖</span><div><strong>Python for Data Analysis — Wes McKinney</strong><p>The pandas bible, written by its creator.</p></div></a>
+        <a href="https://www.manning.com/books/effective-data-analysis" target="_blank" class="resource-card"><span class="res-icon">📖</span><div><strong>Effective Data Analysis — Mona Khalil</strong><p>Bridges the gap between cleaning and insight. Full lifecycle coverage.</p></div></a>
+        <a href="https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/books/data-warehouse-dw-toolkit/" target="_blank" class="resource-card"><span class="res-icon">📖</span><div><strong>The Data Warehouse Toolkit — Kimball & Ross</strong><p>Read this when you're ready to think in proper pipeline architecture at scale.</p></div></a>
+        <a href="https://docs.pola.rs/" target="_blank" class="resource-card"><span class="res-icon">📚</span><div><strong>Polars Official Docs</strong><p>Best reference for lazy evaluation, expressions, and large-file efficiency.</p></div></a>
+        <a href="https://pandera.readthedocs.io/" target="_blank" class="resource-card"><span class="res-icon">📚</span><div><strong>Pandera Documentation</strong><p>Schema validation, custom checks, and CI pipeline integration.</p></div></a>
+      </div>
+    </section>
+
+    <section id="sandbox" class="section">
+      <h1>Live Sandbox</h1>
+      <p class="lead">Paste messy CSV data below and apply cleaning operations to see the effect in real-time.</p>
+      <div class="sandbox-layout">
+        <div class="sandbox-input-panel">
+          <label>📥 Paste raw / messy data (CSV format)</label>
+          <textarea id="sandbox-input" rows="10" placeholder="customer_id,name,email,revenue&#10;001, John Smith ,JOHN@GMAIL.COM, 1200&#10;001, John Smith ,john@gmail.com,1200&#10;002,Jane   Doe,jane@yahoo.com,&#10;003,,badEmail,3400&#10;004,Bob Jones,bob@corp.com,-50"></textarea>
+          <div class="sandbox-operations">
+            <label>🔧 Apply operations:</label>
+            <div class="op-checks">
+              <label><input type="checkbox" id="op-lowercase" checked> Lowercase text columns</label>
+              <label><input type="checkbox" id="op-trim" checked> Trim whitespace</label>
+              <label><input type="checkbox" id="op-dedup" checked> Remove duplicates</label>
+              <label><input type="checkbox" id="op-nullify"> Replace empty strings with NULL</label>
+              <label><input type="checkbox" id="op-negatives"> Flag negative revenue</label>
+              <label><input type="checkbox" id="op-emailvalidate"> Flag invalid emails</label>
+            </div>
+            <button id="sandbox-run">▶ Run Cleaning</button>
+          </div>
+        </div>
+        <div class="sandbox-output-panel">
+          <label>📤 Cleaned output</label>
+          <div id="sandbox-output-table"></div>
+          <div id="sandbox-log" class="audit-log"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
